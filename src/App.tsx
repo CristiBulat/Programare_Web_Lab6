@@ -1,15 +1,28 @@
+import { useEffect } from 'react'
+import { Route, Routes } from 'react-router-dom'
+import { Layout } from './components/Layout'
+import Library from './pages/Library'
+import SearchPage from './pages/Search'
+import Detail from './pages/Detail'
+import AddManual from './pages/AddManual'
+import Settings from './pages/Settings'
+import { useLibrary } from './store/library'
+
 export default function App() {
+  const load = useLibrary((s) => s.load)
+  useEffect(() => {
+    load()
+  }, [load])
+
   return (
-    <div className="min-h-screen flex items-center justify-center px-6">
-      <div className="text-center max-w-md">
-        <div className="h-14 w-14 mx-auto rounded-2xl bg-gradient-to-br from-accent to-purple-500 flex items-center justify-center text-white text-3xl font-bold mb-5">
-          R
-        </div>
-        <h1 className="text-5xl font-bold mb-2">Reel</h1>
-        <p className="text-ink-muted dark:text-ink-dark-muted">
-          Anime, movie &amp; series tracker — coming together one feature at a time.
-        </p>
-      </div>
-    </div>
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<Library />} />
+        <Route path="search" element={<SearchPage />} />
+        <Route path="add" element={<AddManual />} />
+        <Route path="entry/:id" element={<Detail />} />
+        <Route path="settings" element={<Settings />} />
+      </Route>
+    </Routes>
   )
 }
