@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useMemo } from 'react'
-import { useLibrary, selectFiltered, selectAllGenres, type SortKey } from '../store/library'
+import { useLibrary, type SortKey } from '../store/library'
 import { EntryCard } from '../components/EntryCard'
 import { EmptyState } from '../components/EmptyState'
 import { LibraryIcon, PlusIcon, SearchIcon } from '../components/Icons'
@@ -21,8 +21,40 @@ export default function Library() {
   const toggleFilterValue = useLibrary((s) => s.toggleFilterValue)
   const resetFilters = useLibrary((s) => s.resetFilters)
 
-  const filtered = useLibrary(selectFiltered)
-  const allGenres = useLibrary(selectAllGenres)
+  const filtered = useMemo(() => {
+    const q = filters.query.trim().toLowerCase()
+    let out = entries.filter((e) => {
+      if (q && !e.title.toLowerCase().includes(q)) return false
+      if (filters.types.size && !filters.types.has(e.type)) return false
+      if (filters.statuses.size && !filters.statuses.has(e.status)) return false
+      if (filters.likedOnly && !e.liked) return false
+      if (filters.genres.size) {
+        const hit = e.genres.some((g) => filters.genres.has(g))
+        if (!hit) return false
+      }
+      return true
+    })
+    out = [...out].sort((a, b) => {
+      switch (filters.sort) {
+        case 'title':
+          return a.title.localeCompare(b.title)
+        case 'rating':
+          return (b.rating ?? -1) - (a.rating ?? -1)
+        case 'year':
+          return (b.year ?? 0) - (a.year ?? 0)
+        case 'updated':
+        default:
+          return b.updatedAt - a.updatedAt
+      }
+    })
+    return out
+  }, [entries, filters])
+
+  const allGenres = useMemo(() => {
+    const set = new Set<string>()
+    for (const e of entries) for (const g of e.genres) set.add(g)
+    return [...set].sort()
+  }, [entries])
 
   const stats = useMemo(() => {
     const byStatus: Record<WatchStatus, number> = {

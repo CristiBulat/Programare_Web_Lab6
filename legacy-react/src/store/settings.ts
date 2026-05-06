@@ -4,6 +4,7 @@ export type Theme = 'light' | 'dark'
 
 const THEME_KEY = 'reel.theme'
 const OMDB_KEY = 'reel.omdbKey'
+const DEFAULT_OMDB_KEY = '234d4886'
 
 function readTheme(): Theme {
   const stored = localStorage.getItem(THEME_KEY)
@@ -25,7 +26,7 @@ interface SettingsState {
 
 export const useSettings = create<SettingsState>((set, get) => ({
   theme: readTheme(),
-  omdbKey: localStorage.getItem(OMDB_KEY) ?? '',
+  omdbKey: localStorage.getItem(OMDB_KEY) ?? DEFAULT_OMDB_KEY,
   setTheme(theme) {
     localStorage.setItem(THEME_KEY, theme)
     applyTheme(theme)

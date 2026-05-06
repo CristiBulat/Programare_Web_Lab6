@@ -7,4 +7,12 @@ export default defineConfig({
   // For GitHub Pages: served at https://<user>.github.io/<repo>/
   // Override at build time via VITE_BASE env var (e.g. VITE_BASE=/lab6/ npm run build).
   base: process.env.VITE_BASE ?? './',
+  server: {
+    port: 3000,
+    strictPort: true,
+  },
+  preview: {
+    port: 3000,
+    strictPort: true,
+  },
 })
