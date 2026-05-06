@@ -7,14 +7,34 @@ Search anime via [Jikan](https://jikan.moe/) (no API key) and movies/series via 
 
 ---
 
+## Repository layout
+
+```
+lab6/
+  angular/          ← active app (Angular 18 + Tailwind + Dexie). This is the one to run.
+  legacy-react/     ← original React 19 + Vite implementation, archived.
+```
+
+## Run the app (Angular)
+
+```bash
+cd angular
+npm install
+npm start            # ng serve at http://localhost:3000
+```
+
+Other scripts (run from `angular/`):
+
+- `npm run build` — production build into `angular/dist/reel-angular/`
+- `npm run deploy` — build + push to `gh-pages` branch (after a GitHub remote is set up)
+
 ## Tech stack
 
-- **React 19 + TypeScript + Vite** — front-end framework
+- **Angular 18** with standalone components and signals — front-end framework
 - **Tailwind CSS** — custom theme with light/dark mode (class strategy)
-- **Zustand** — runtime state (entries, filters, settings)
-- **Dexie.js** — IndexedDB persistence for watchlist entries
-- **react-router-dom** (HashRouter) — client-side routing, GitHub-Pages-friendly
-- External APIs: **Jikan v4** (anime) and **OMDb** (movies / series)
+- **Dexie.js** — IndexedDB persistence for the watchlist
+- **Angular Router** with `withHashLocation()` — GitHub-Pages-friendly deep links
+- **HttpClient + RxJS** — debounced search against Jikan v4 (anime) and OMDb (movies/series)
 
 ## State persistence
 
@@ -38,8 +58,6 @@ Entries survive reloads, browser restarts, and offline; preferences too.
 - **Theme**: light / dark, persisted; respects system preference on first visit.
 - **Backup**: export library to JSON, re-import on another device, or clear everything.
 
----
-
 ## Flows
 
 ### 1. Browse the library
@@ -52,70 +70,43 @@ Entries survive reloads, browser restarts, and offline; preferences too.
 `/add` — Form for entries the APIs don't return: title, type, status, year, poster URL, genres, synopsis, notes, total episodes (for anime/series).
 
 ### 4. View / edit / delete
-`/entry/:id` — Full detail view. Change status with a chip row, rate with stars, like/unlike, increment episodes watched, edit any field, or delete the entry. All writes go through the Zustand store and Dexie in lockstep.
+`/entry/:id` — Full detail view. Change status with a chip row, rate with stars, like/unlike, increment episodes watched, edit any field, or delete the entry.
 
 ### 5. Filter & sort
-The Library page exposes type, status, genre, and liked-only chips, plus a search box and a sort dropdown (recent / title / rating / year). Filters live in the store, so they persist between page navigations within a session.
+The Library page exposes type, status, genre, and liked-only chips, plus a search box and a sort dropdown (recent / title / rating / year).
 
 ### 6. Settings
-`/settings` — Toggle theme, paste an OMDb key (used for movie/series search; key never leaves the browser), export the library to JSON, import a JSON dump, or wipe all entries.
+`/settings` — Toggle theme, paste an OMDb key, export the library to JSON, import a JSON dump, or wipe all entries.
 
 ---
 
-## Local development
-
-```bash
-npm install
-npm run dev      # vite dev server at http://localhost:5173
-npm run build    # type-check + production build to dist/
-npm run preview  # preview the production build
-```
-
-## Deploy to GitHub Pages
-
-The Vite config defaults `base` to `./` so the build works under any path.
-You can deploy with [`gh-pages`](https://www.npmjs.com/package/gh-pages):
-
-```bash
-# After pushing to a GitHub repo and enabling Pages on branch gh-pages:
-npm run deploy
-```
-
-The app uses `HashRouter`, so deep-linking (e.g. `/#/entry/3`) works on GitHub Pages without server-side rewrites.
-
----
-
-## Project structure
+## Project structure (`angular/src/app/`)
 
 ```
-src/
-  api/
-    jikan.ts        # Jikan v4 client (anime search)
-    omdb.ts         # OMDb client (movie/series search)
-  components/
-    Layout.tsx      # sidebar + topbar shell
-    EntryCard.tsx   # poster card used on Library
-    Poster.tsx      # image with type-icon fallback
-    StatusBadge.tsx # colored status pill
-    StarRating.tsx  # half-star rating control
-    ThemeToggle.tsx
-    Icons.tsx       # SVG icons (no external icon lib)
-    EmptyState.tsx
-    Spinner.tsx
-  pages/
-    Library.tsx     # list + filters + sort
-    Search.tsx      # API-backed search
-    AddManual.tsx   # manual entry form
-    Detail.tsx      # entry detail / edit
-    Settings.tsx    # theme, OMDb key, export/import
-  store/
-    library.ts      # Zustand: entries + filters; talks to Dexie
-    settings.ts     # Zustand: theme + OMDb key
-  db.ts             # Dexie database (one table: entries)
-  types.ts
-  index.css         # Tailwind layers + component classes
-  main.tsx
-  App.tsx           # routes
+models/
+  types.ts                     # WatchEntry, MediaType, WatchStatus, SearchResult, sort/type/status labels
+services/
+  db.service.ts                # Dexie database (one table: entries)
+  library.service.ts           # signal-based store for entries + filters + CRUD
+  settings.service.ts          # signal-based store for theme + OMDb key
+  jikan.service.ts             # Jikan v4 client (anime search)
+  omdb.service.ts              # OMDb client (movie/series search)
+components/
+  layout/                      # sidebar + topbar shell
+  entry-card/                  # poster card used on Library
+  poster/                      # image with type-icon fallback
+  status-badge/                # colored status pill
+  star-rating/                 # half-star rating control
+  theme-toggle/
+  icon/                        # SVG icon set (no external icon lib)
+  empty-state/
+  spinner/
+pages/
+  library/                     # list + filters + sort
+  search/                      # API-backed search
+  add-manual/                  # manual entry form
+  detail/                      # entry detail / edit
+  settings/                    # theme, OMDb key, export/import
 ```
 
 ---
@@ -124,7 +115,9 @@ src/
 
 - **Entities w/ add/remove/like/filter** → `WatchEntry` rows with full CRUD, like toggle, multi-axis filters.
 - **Custom theme with light/dark** → custom Tailwind tokens (`bg`, `surface`, `elevated`, `line`, `ink`, `accent`); class-based dark mode persisted in localStorage with system-preference fallback.
-- **Front-end framework** → React.
-- **Runtime + browser-stored state** → Zustand (runtime) + Dexie/IndexedDB (entries) + localStorage (preferences).
-- **Decent git history** → progressive commits per feature; check `git log` for the build-up.
-- **Public hosting** → GitHub Pages via `npm run deploy`.
+- **Front-end framework** → Angular.
+- **Runtime + browser-stored state** → Angular signals (runtime) + Dexie/IndexedDB (entries) + localStorage (preferences).
+- **Decent git history** → progressive commits per feature.
+- **Public hosting** → GitHub Pages via `npm run deploy` (from `angular/`).
+
+The original React implementation is preserved in [`legacy-react/`](./legacy-react/) for reference.
