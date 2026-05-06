@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+    @apply dark:bg-bg-dark dark:text-ink-dark;
+    min-height: 100vh;
+  }
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors;
+    @apply focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-bg dark:focus:ring-offset-bg-dark;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-white hover:bg-accent-hover;
+  }
+  .btn-ghost {
+    @apply btn text-ink dark:text-ink-dark hover:bg-elevated dark:hover:bg-elevated-dark;
+  }
+  .btn-outline {
+    @apply btn border border-line dark:border-line-dark text-ink dark:text-ink-dark hover:bg-elevated dark:hover:bg-elevated-dark;
+  }
+  .btn-danger {
+    @apply btn bg-danger text-white hover:opacity-90;
+  }
+  .input {
+    @apply w-full px-3 py-2 rounded-lg border border-line dark:border-line-dark;
+    @apply bg-surface dark:bg-surface-dark text-ink dark:text-ink-dark;
+    @apply focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent;
+    @apply placeholder:text-ink-muted dark:placeholder:text-ink-dark-muted;
+  }
+  .card {
+    @apply bg-surface dark:bg-surface-dark rounded-xl border border-line dark:border-line-dark shadow-card dark:shadow-card-dark;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors;
+    @apply bg-elevated dark:bg-elevated-dark text-ink dark:text-ink-dark hover:bg-line dark:hover:bg-line-dark;
+  }
+  .chip-active {
+    @apply bg-accent text-white hover:bg-accent-hover;
+  }
+}
