@@ -1,5 +1,8 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { DbService } from './db.service';
+import { SettingsService } from './settings.service';
+import { ApiService } from './api.service';
+import { AuthService } from './auth.service';
 import {
   MediaType,
   SearchResult,
@@ -29,6 +32,10 @@ const defaultFilters = (): Filters => ({
 @Injectable({ providedIn: 'root' })
 export class LibraryService {
   private dbService = inject(DbService);
+  private settings = inject(SettingsService);
+  private api = inject(ApiService);
+  private auth = inject(AuthService);
+
   private get db() {
     return this.dbService.db;
   }
@@ -36,6 +43,19 @@ export class LibraryService {
   readonly entries = signal<WatchEntry[]>([]);
   readonly loaded = signal(false);
   readonly filters = signal<Filters>(defaultFilters());
+
+  readonly source = computed<'api' | 'local'>(() =>
+    this.settings.apiMode() && this.auth.isAuthenticated() ? 'api' : 'local',
+  );
+
+  constructor() {
+    effect(() => {
+      this.source();
+      this.loaded.set(false);
+      this.entries.set([]);
+      void this.load();
+    });
+  }
 
   readonly filtered = computed<WatchEntry[]>(() => {
     const entries = this.entries();
@@ -87,8 +107,17 @@ export class LibraryService {
   });
 
   async load() {
-    const entries = await this.db.entries.orderBy('updatedAt').reverse().toArray();
-    this.entries.set(entries);
+    if (this.source() === 'api') {
+      try {
+        const page = await this.api.listEntries({ skip: 0, limit: 200, sort: 'updated' });
+        this.entries.set(page.items.map(normalizeEntry));
+      } catch {
+        this.entries.set([]);
+      }
+    } else {
+      const entries = await this.db.entries.orderBy('updatedAt').reverse().toArray();
+      this.entries.set(entries);
+    }
     this.loaded.set(true);
   }
 
@@ -103,7 +132,7 @@ export class LibraryService {
     },
   ): Promise<number> {
     const now = Date.now();
-    const entry: WatchEntry = {
+    const entryBase: WatchEntry = {
       title: input.title,
       type: input.type,
       year: input.year ?? null,
@@ -120,12 +149,41 @@ export class LibraryService {
       createdAt: now,
       updatedAt: now,
     };
-    const id = await this.db.entries.add(entry);
-    this.entries.update((arr) => [{ ...entry, id }, ...arr]);
+    if (this.source() === 'api') {
+      const created = normalizeEntry(await this.api.createEntry(entryBase));
+      this.entries.update((arr) => [created, ...arr]);
+      return created.id!;
+    }
+    const id = await this.db.entries.add(entryBase);
+    this.entries.update((arr) => [{ ...entryBase, id }, ...arr]);
     return id;
   }
 
   async addFromSearch(result: SearchResult, status: WatchStatus = 'plan_to_watch'): Promise<number> {
+    if (this.source() === 'api') {
+      const existing = this.entries().find(
+        (e) => result.externalId && e.externalId === result.externalId,
+      );
+      if (existing?.id != null) return existing.id;
+      const created = normalizeEntry(
+        await this.api.createEntry({
+          externalId: result.externalId,
+          type: result.type,
+          title: result.title,
+          year: result.year ?? null,
+          posterUrl: result.posterUrl,
+          synopsis: result.synopsis,
+          genres: result.genres ?? [],
+          rating: null,
+          liked: false,
+          status,
+          episodesTotal: null,
+          episodesWatched: 0,
+        }),
+      );
+      this.entries.update((arr) => [created, ...arr]);
+      return created.id!;
+    }
     if (result.externalId) {
       const existing = await this.db.entries
         .where('externalId')
@@ -157,6 +215,11 @@ export class LibraryService {
 
   async update(id: number, patch: Partial<WatchEntry>) {
     const updatedAt = Date.now();
+    if (this.source() === 'api') {
+      const updated = normalizeEntry(await this.api.updateEntry(id, patch));
+      this.entries.update((arr) => arr.map((e) => (e.id === id ? updated : e)));
+      return;
+    }
     await this.db.entries.update(id, { ...patch, updatedAt });
     this.entries.update((arr) =>
       arr.map((e) => (e.id === id ? { ...e, ...patch, updatedAt } : e)),
@@ -164,7 +227,11 @@ export class LibraryService {
   }
 
   async remove(id: number) {
-    await this.db.entries.delete(id);
+    if (this.source() === 'api') {
+      await this.api.deleteEntry(id);
+    } else {
+      await this.db.entries.delete(id);
+    }
     this.entries.update((arr) => arr.filter((e) => e.id !== id));
   }
 
@@ -183,22 +250,30 @@ export class LibraryService {
   }
 
   async importMany(entries: WatchEntry[]) {
-    const now = Date.now();
     const cleaned = entries.map((e) => {
       const copy: WatchEntry = { ...e };
       delete copy.id;
+      const now = Date.now();
       copy.createdAt = copy.createdAt ?? now;
       copy.updatedAt = copy.updatedAt ?? now;
       copy.episodesWatched = copy.episodesWatched ?? 0;
       copy.genres = copy.genres ?? [];
       return copy;
     });
-    await this.db.entries.bulkAdd(cleaned);
+    if (this.source() === 'api') {
+      await this.api.bulkImport(cleaned);
+    } else {
+      await this.db.entries.bulkAdd(cleaned);
+    }
     await this.load();
   }
 
   async clearAll() {
-    await this.db.entries.clear();
+    if (this.source() === 'api') {
+      await this.api.clearAll();
+    } else {
+      await this.db.entries.clear();
+    }
     this.entries.set([]);
   }
 
@@ -229,4 +304,13 @@ export class LibraryService {
       f.likedOnly
     );
   });
+}
+
+function normalizeEntry(e: WatchEntry): WatchEntry {
+  return {
+    ...e,
+    genres: e.genres ?? [],
+    episodesWatched: e.episodesWatched ?? 0,
+    liked: !!e.liked,
+  };
 }
