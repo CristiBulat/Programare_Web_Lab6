@@ -1,7 +1,9 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { IconComponent, IconName } from '../icon/icon.component';
 import { ThemeToggleComponent } from '../theme-toggle/theme-toggle.component';
+import { AuthService } from '../../services/auth.service';
+import { SettingsService } from '../../services/settings.service';
 
 interface NavItem {
   to: string;
@@ -46,7 +48,39 @@ interface NavItem {
             }
           </nav>
 
-          <div class="md:mt-auto">
+          <div class="md:mt-auto space-y-2">
+            <div class="hidden md:block text-xs">
+              @if (auth.isAuthenticated()) {
+                <a
+                  routerLink="/login"
+                  class="card px-3 py-2 flex flex-col gap-0.5 hover:border-accent/50 transition-colors"
+                  title="Re-authenticate"
+                >
+                  <span class="flex items-center gap-1 font-semibold">
+                    <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                    {{ auth.role() }}
+                  </span>
+                  <span class="text-ink-muted dark:text-ink-dark-muted">
+                    Expires in {{ auth.secondsRemaining() }}s
+                  </span>
+                </a>
+              } @else if (settings.apiMode()) {
+                <a routerLink="/login" class="card px-3 py-2 block hover:border-accent/50 transition-colors">
+                  <span class="flex items-center gap-1 font-semibold">
+                    <span class="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
+                    Sign in
+                  </span>
+                  <span class="text-ink-muted dark:text-ink-dark-muted">API mode on</span>
+                </a>
+              } @else {
+                <div class="card px-3 py-2">
+                  <span class="flex items-center gap-1 text-ink-muted dark:text-ink-dark-muted">
+                    <span class="inline-block w-2 h-2 rounded-full bg-slate-400"></span>
+                    Offline mode
+                  </span>
+                </div>
+              }
+            </div>
             <app-theme-toggle />
           </div>
         </div>
@@ -61,6 +95,9 @@ interface NavItem {
   `,
 })
 export class LayoutComponent {
+  auth = inject(AuthService);
+  settings = inject(SettingsService);
+
   nav: NavItem[] = [
     { to: '/', label: 'Library', icon: 'library', exact: true },
     { to: '/search', label: 'Search', icon: 'search' },

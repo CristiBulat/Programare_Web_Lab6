@@ -1,14 +1,16 @@
 import { ChangeDetectionStrategy, Component, ViewChild, ElementRef, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { SettingsService } from '../../services/settings.service';
 import { LibraryService } from '../../services/library.service';
+import { AuthService } from '../../services/auth.service';
 import { IconComponent } from '../../components/icon/icon.component';
 import { WatchEntry } from '../../models/types';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [FormsModule, IconComponent],
+  imports: [FormsModule, RouterLink, IconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="max-w-2xl space-y-8">
@@ -35,6 +37,71 @@ import { WatchEntry } from '../../models/types';
           >
             Dark
           </button>
+        </div>
+      </section>
+
+      <section class="space-y-3">
+        <h2 class="text-lg font-semibold">Backend API (Lab 7)</h2>
+        <p class="text-sm text-ink-muted dark:text-ink-dark-muted">
+          Connect this Angular client to the FastAPI back-end. When enabled, the library
+          reads & writes go through the API (with a JWT) instead of IndexedDB. Tokens
+          last 5 minutes — re-authenticate via Sign in.
+        </p>
+        <div class="space-y-2">
+          <label class="text-xs font-medium uppercase tracking-wider">API URL</label>
+          <div class="flex gap-2">
+            <input
+              class="input"
+              [(ngModel)]="apiUrlDraft"
+              name="apiUrl"
+              placeholder="http://127.0.0.1:8000"
+            />
+            <button type="button" class="btn-primary whitespace-nowrap" (click)="saveApiUrl()">
+              @if (apiSavedFlash()) {
+                <app-icon name="check" [size]="16" /> Saved
+              } @else {
+                Save
+              }
+            </button>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-2 items-center">
+          <button
+            type="button"
+            class="chip"
+            [class.chip-active]="settings.apiMode()"
+            (click)="settings.setApiMode(true)"
+          >
+            API mode
+          </button>
+          <button
+            type="button"
+            class="chip"
+            [class.chip-active]="!settings.apiMode()"
+            (click)="settings.setApiMode(false)"
+          >
+            Offline (IndexedDB)
+          </button>
+        </div>
+        <div class="card p-3 text-sm space-y-1">
+          @if (auth.isAuthenticated()) {
+            <div>
+              Signed in as <strong>{{ auth.role() }}</strong>
+              · permissions [{{ auth.permissions().join(', ') }}]
+            </div>
+            <div class="text-ink-muted dark:text-ink-dark-muted">
+              Token expires in {{ auth.secondsRemaining() }}s.
+            </div>
+            <div class="flex gap-2 pt-1">
+              <a routerLink="/login" class="btn-outline">Re-authenticate</a>
+              <button type="button" class="btn-outline" (click)="auth.signOut()">Sign out</button>
+            </div>
+          } @else {
+            <div>Not signed in.</div>
+            <div class="pt-1">
+              <a routerLink="/login" class="btn-primary">Sign in</a>
+            </div>
+          }
         </div>
       </section>
 
@@ -111,10 +178,20 @@ import { WatchEntry } from '../../models/types';
 export class SettingsComponent {
   settings = inject(SettingsService);
   library = inject(LibraryService);
+  auth = inject(AuthService);
 
   keyDraft = this.settings.omdbKey();
+  apiUrlDraft = this.settings.apiUrl();
   savedFlash = signal(false);
+  apiSavedFlash = signal(false);
   importMsg = signal<string | null>(null);
+
+  saveApiUrl() {
+    this.settings.setApiUrl(this.apiUrlDraft);
+    this.apiUrlDraft = this.settings.apiUrl();
+    this.apiSavedFlash.set(true);
+    setTimeout(() => this.apiSavedFlash.set(false), 1500);
+  }
 
   saveKey() {
     this.settings.setOmdbKey(this.keyDraft.trim());
