@@ -87,7 +87,9 @@ app.add_middleware(
 
 
 @app.get("/", tags=["meta"], summary="API info")
-def root() -> dict[str, str]:
+def root(
+    _: TokenPayload = Depends(require_permissions(Permission.READ)),
+) -> dict[str, str]:
     return {
         "name": API_TITLE,
         "version": API_VERSION,
@@ -97,7 +99,9 @@ def root() -> dict[str, str]:
 
 
 @app.get("/health", tags=["meta"], summary="Health check")
-def health() -> dict[str, str]:
+def health(
+    _: TokenPayload = Depends(require_permissions(Permission.READ)),
+) -> dict[str, str]:
     return {"status": "ok"}
 
 
@@ -154,7 +158,9 @@ def refresh_token(
     tags=["auth"],
     summary="List all available roles and their permissions",
 )
-def list_roles() -> dict[str, list[str]]:
+def list_roles(
+    _: TokenPayload = Depends(require_permissions(Permission.READ)),
+) -> dict[str, list[str]]:
     from .auth import ROLE_PERMISSIONS
 
     return {role.value: [p.value for p in perms] for role, perms in ROLE_PERMISSIONS.items()}
